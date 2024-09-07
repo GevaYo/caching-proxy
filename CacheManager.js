@@ -1,18 +1,21 @@
 const redis = require("redis");
 
 class CacheManager {
-  constructor() {
-    this.client = redis.createClient({
-      url: "redis://localhost:6379",
-    });
+  constructor(redisUrl = "redis://localhost:6379", expirationTime = 300) {
+    this.client = redis.createClient({ url: redisUrl });
+    this.expirationTime = expirationTime;
 
-    this.client.on("error", (err) => {
-      console.error("Redis Client Error", err);
-    });
+    this.client.on("error", (err) => console.error("Redis Client Error", err));
 
-    this.client.connect().catch((err) => {
+    this.connect();
+  }
+
+  async connect() {
+    try {
+      await this.client.connect();
+    } catch (err) {
       console.error("Failed to connect to Redis", err);
-    });
+    }
   }
 
   async getCache(key) {
@@ -21,16 +24,16 @@ class CacheManager {
       return data ? JSON.parse(data) : null;
     } catch (err) {
       console.error("Error getting cache", err);
-      throw err;
+      return null; // Return null instead of throwing
     }
   }
 
   async setCache(key, value) {
     try {
-      await this.client.setEx(key, 300, JSON.stringify(value));
+      await this.client.setEx(key, this.expirationTime, JSON.stringify(value));
     } catch (err) {
       console.error("Error setting cache", err);
-      throw err;
+      // Don't throw, just log the error
     }
   }
 
@@ -48,7 +51,7 @@ class CacheManager {
       await this.client.quit();
     } catch (err) {
       console.error("Error closing Redis client", err);
-      throw err;
+      // Don't throw, just log the error
     }
   }
 }
